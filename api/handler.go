@@ -242,7 +242,7 @@ func unifiedOrders(amount float32) (*orderResult, error) {
 		//Out_trade_no:     "201508061125346",
 		//Total_fee:        100,
 		Spbill_create_ip: "123.12.12.123",
-		Notify_url:       "http://www.weixin.qq.com/wxpay/pay.php",
+		Notify_url:       "http://datafoundry.wechat.app.dataos.io/wxpay/pay.action",
 		Trade_type:       "NATIVE",
 		//Openid:           "oJtqRwsBv42LOBmpaBxKCs-OVP50",
 	}
