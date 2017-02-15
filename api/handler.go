@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/asiainfoLDP/datafoundry_wechat/common"
 	"github.com/asiainfoLDP/datafoundry_wechat/log"
-	"github.com/asiainfoLDP/datafoundry_wechat/models"
+	//"github.com/asiainfoLDP/datafoundry_wechat/models"
 	"github.com/julienschmidt/httprouter"
 	"math/rand"
 	"net/http"
@@ -43,12 +43,12 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	logger.Info("Request url: PUT %v.", r.URL)
 	logger.Info("Begin use a coupon handler.")
 
-	db := models.GetDB()
-	if db == nil {
-		logger.Warn("Get db is nil.")
-		JsonResult(w, http.StatusInternalServerError, GetError(ErrorCodeDbNotInitlized), nil)
-		return
-	}
+	//db := models.GetDB()
+	//if db == nil {
+	//	logger.Warn("Get db is nil.")
+	//	JsonResult(w, http.StatusInternalServerError, GetError(ErrorCodeDbNotInitlized), nil)
+	//	return
+	//}
 
 	//r.ParseForm()
 	//region := r.Form.Get("region")
