@@ -9,6 +9,7 @@ import (
 
 	"errors"
 	"github.com/asiainfoLDP/datafoundry_wechat/log"
+	"encoding/xml"
 )
 
 const (
@@ -94,6 +95,16 @@ func ParseRequestJsonAsMap(r *http.Request) (map[string]interface{}, error) {
 	}
 
 	return m, err
+}
+
+func ParseRequestXmlInto(r *http.Request, into interface{}) error {
+
+	data, err := GetRequestData(r)
+	if err != nil {
+		return err
+	}
+
+	return xml.Unmarshal(data, into)
 }
 
 func ParseRequestJsonInto(r *http.Request, into interface{}) error {
