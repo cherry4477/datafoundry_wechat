@@ -39,8 +39,8 @@ func main() {
 	//new a router
 	router.NewRouter(initRouter)
 
-	// init db
-	models.InitDB()
+	// init db, 数据库使用开关
+	//models.InitDB()
 
 	service := newService(SERVERPORT)
 	address := fmt.Sprintf(":%d", service.httpPort)
@@ -57,6 +57,7 @@ func main() {
 }
 
 func init() {
+	//kafka使用开关
 	//api.InitMQ()
 
 	flag.Parse()
