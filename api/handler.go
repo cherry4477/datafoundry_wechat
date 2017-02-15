@@ -187,7 +187,7 @@ func wxpayVerifySign(needVerifyM map[string]interface{}, sign string) bool {
 	logger.Info("计算出来的sign: %v", signCalc)
 	logger.Info("微信异步通知sign: %v", sign)
 	if sign == signCalc {
-		fmt.Println("签名校验通过!")
+		logger.Info("签名校验通过!")
 		return true
 	}
 
