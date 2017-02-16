@@ -73,13 +73,30 @@ type retrieveResult struct {
 	Status   string    `json:"status"`
 }
 
-func RetrieveCouponByID(db *sql.DB, couponId string) (*retrieveResult, error) {
+type OrderResult struct {
+	Out_trade_no string
+	Nonce_str    string
+	Trade_type   string
+	Total_fee    float32
+	Code_url     string
+	Sign         string
+}
+
+func CreateOrder(db *sql.DB, result *OrderResult, username, namespace string) error {
 	logger.Info("Begin get a coupon by id model.")
 
-	couponId = strings.ToLower(couponId)
+	sql := "insert into DF_WECHATORDERS (" +
+		"OUT_TRADE_NO, NONCE_STR, ORDERSIGN, TOTAL_FEE, TRADE_TYPE, CODE_URL, USERNAME, NAMESPACE, STATUS) " +
+		"values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
+	_, err := db.Exec(sql, result.Out_trade_no, result.Nonce_str, result.Sign,
+		result.Total_fee, result.Trade_type, result.Code_url, username, namespace, "created")
+	if err != nil {
+		logger.Error(" db.Exec err: %v", err)
+		return err
+	}
 	logger.Info("End get a coupon by id model.")
-	return getSingleCoupon(db, fmt.Sprintf("CODE = '%s'", couponId))
+	return nil
 }
 
 func getSingleCoupon(db *sql.DB, sqlWhere string) (*retrieveResult, error) {

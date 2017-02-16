@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/asiainfoLDP/datafoundry_wechat/common"
 	"github.com/asiainfoLDP/datafoundry_wechat/log"
-	//"github.com/asiainfoLDP/datafoundry_wechat/models"
+	"github.com/asiainfoLDP/datafoundry_wechat/models"
 	"github.com/julienschmidt/httprouter"
 	"math/rand"
 	"net/http"
@@ -18,9 +18,7 @@ import (
 	"time"
 )
 
-var (
-	url string = "https://api.mch.weixin.qq.com/pay/unifiedorder"
-)
+var ()
 
 const (
 	letterBytes = "abcdefghjklmnpqrstuvwxyz0123456789"
@@ -36,32 +34,33 @@ func init() {
 }
 
 type RechargeInfo struct {
-	Amount float32 `json:"amount"`
+	Amount    float32 `json:"amount"`
+	Namespace string  `json:"namespace"`
 }
 
 func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Info("Request url: PUT %v.", r.URL)
 	logger.Info("Begin use a coupon handler.")
 
-	//db := models.GetDB()
-	//if db == nil {
-	//	logger.Warn("Get db is nil.")
-	//	JsonResult(w, http.StatusInternalServerError, GetError(ErrorCodeDbNotInitlized), nil)
-	//	return
-	//}
+	db := models.GetDB()
+	if db == nil {
+		logger.Warn("Get db is nil.")
+		JsonResult(w, http.StatusInternalServerError, GetError(ErrorCodeDbNotInitlized), nil)
+		return
+	}
 
-	//r.ParseForm()
-	//region := r.Form.Get("region")
-	//username, e := validateAuth(r.Header.Get("Authorization"), region)
-	//if e != nil {
-	//	JsonResult(w, http.StatusUnauthorized, e, nil)
-	//	return
-	//}
-	//logger.Debug("username:%v", username)
+	r.ParseForm()
+	region := r.Form.Get("region")
+	username, e := validateAuth(r.Header.Get("Authorization"), region)
+	if e != nil {
+		JsonResult(w, http.StatusUnauthorized, e, nil)
+		return
+	}
+	logger.Debug("username:%v", username)
 
 	//serial := params.ByName("serial")
 
-	correctInput := []string{"amount"}
+	correctInput := []string{"amount", "namespace"}
 	rechargeInfo := &RechargeInfo{}
 	err := common.ParseRequestJsonIntoWithValidateParams(r, correctInput, rechargeInfo)
 	if err != nil {
@@ -75,16 +74,17 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	if err != nil {
 		logger.Error("catch err: %v", err)
 		JsonResult(w, http.StatusBadRequest, GetError2(ErrorCodeUnkown, err.Error()), nil)
+		return
 	}
 
 	//couponRecharge(region, serial, username, useInfo.Namespace, rechargeInfo.Amount)
 
-	//getResult, err := models.RetrieveCouponByID(db, useInfo.Code)
-	//if err != nil {
-	//	logger.Error("db get coupon err: %v", err)
-	//	JsonResult(w, http.StatusBadRequest, GetError2(ErrorCodeGetCoupon, err.Error()), nil)
-	//	return
-	//}
+	err = models.CreateOrder(db, result, username, rechargeInfo.Namespace)
+	if err != nil {
+		logger.Error("db create order err: %v", err)
+		JsonResult(w, http.StatusBadRequest, GetError2(ErrorCodeCreateOrder, err.Error()), nil)
+		return
+	}
 
 	//callback := func() error {
 	//	return couponRecharge(region, serial, username, useInfo.Namespace, rechargeInfo.Amount)
@@ -98,7 +98,12 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	//}
 
 	//logger.Info("End use a coupon handler.")
-	JsonResult(w, http.StatusOK, nil, result)
+	JsonResult(w, http.StatusOK, nil, struct {
+		Out_trade_no string
+		Trade_type   string
+		Total_fee    float32
+		Code_url     string
+	}{result.Out_trade_no, result.Trade_type, result.Total_fee, result.Code_url})
 }
 
 type WXPayNotifyReq struct {
@@ -131,7 +136,7 @@ type WXPayNotifyResp struct {
 func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
 	reqParams := &WXPayNotifyReq{}
-	err := common.ParseRequestXmlInto(r,reqParams)
+	err := common.ParseRequestXmlInto(r, reqParams)
 	if err != nil {
 		http.Error(w.(http.ResponseWriter), http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -157,7 +162,6 @@ func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 	reqMap["attach"] = reqParams.Attach
 	reqMap["time_end"] = reqParams.Time_end
 
-
 	var resp WXPayNotifyResp
 	//进行签名校验
 	if wxpayVerifySign(reqMap, reqParams.Sign) {
@@ -182,7 +186,7 @@ func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 }
 
 func wxpayVerifySign(needVerifyM map[string]interface{}, sign string) bool {
-	signCalc := wxpayCalcSign(needVerifyM , "data2016data2016data2016data2016")
+	signCalc := wxpayCalcSign(needVerifyM, "data2016data2016data2016data2016")
 
 	logger.Info("计算出来的sign: %v", signCalc)
 	logger.Info("微信异步通知sign: %v", sign)
@@ -196,17 +200,16 @@ func wxpayVerifySign(needVerifyM map[string]interface{}, sign string) bool {
 }
 
 type UnifyOrderReq struct {
-	Appid            string  `xml:"appid"`
-	Mch_id           string  `xml:"mch_id"`
-	Nonce_str        string  `xml:"nonce_str"`
-	Sign             string  `xml:"sign"`
-	Body             string  `xml:"body"`
-	Out_trade_no     string  `xml:"out_trade_no"`
-	Total_fee        float32 `xml:"total_fee"`
-	Spbill_create_ip string  `xml:"spbill_create_ip"`
-	Notify_url       string  `xml:"notify_url"`
-	Trade_type       string  `xml:"trade_type"`
-	//Openid           string `xml:"openid"`
+	Appid            string `xml:"appid"`
+	Mch_id           string `xml:"mch_id"`
+	Nonce_str        string `xml:"nonce_str"`
+	Sign             string `xml:"sign"`
+	Body             string `xml:"body"`
+	Out_trade_no     string `xml:"out_trade_no"`
+	Total_fee        int32  `xml:"total_fee"`
+	Spbill_create_ip string `xml:"spbill_create_ip"`
+	Notify_url       string `xml:"notify_url"`
+	Trade_type       string `xml:"trade_type"`
 }
 
 type UnifyOrderResp struct {
@@ -224,13 +227,7 @@ type UnifyOrderResp struct {
 	Err_code_des string `xml:"err_code_des"`
 }
 
-type orderResult struct {
-	Out_trade_no string
-	Trade_type   string
-	Code_url     string
-}
-
-func unifiedOrders(amount float32) (*orderResult, error) {
+func unifiedOrders(amount float32) (*models.OrderResult, error) {
 	logger.Info("Begin start unified orders.")
 
 	myReq := UnifyOrderReq{
@@ -241,15 +238,14 @@ func unifiedOrders(amount float32) (*orderResult, error) {
 		Body: "铸数工坊充值",
 		//Out_trade_no:     "201508061125346",
 		//Total_fee:        100,
-		Spbill_create_ip: "123.12.12.123",
+		Spbill_create_ip: "192.168.12.71",
 		Notify_url:       "http://datafoundry.wechat.app.dataos.io/wxpay/pay.action",
 		Trade_type:       "NATIVE",
-		//Openid:           "oJtqRwsBv42LOBmpaBxKCs-OVP50",
 	}
 
 	myReq.Nonce_str = genNonce_str()
 	myReq.Out_trade_no = genOut_trade_no()
-	myReq.Total_fee = amount * 100
+	myReq.Total_fee = (int32)(amount * 100)
 
 	var m map[string]interface{}
 	m = make(map[string]interface{}, 0)
@@ -264,6 +260,7 @@ func unifiedOrders(amount float32) (*orderResult, error) {
 	m["nonce_str"] = myReq.Nonce_str
 	//m["openid"] = myReq.Openid
 	myReq.Sign = wxpayCalcSign(m, "data2016data2016data2016data2016") //这个是计算wxpay签名的函数上面已贴出
+	logger.Info("order sign: %v", myReq.Sign)
 
 	inputBody, err := xml.Marshal(myReq)
 	if err != nil {
@@ -273,6 +270,7 @@ func unifiedOrders(amount float32) (*orderResult, error) {
 
 	logger.Debug("input: %v", string(inputBody))
 
+	url := "https://api.mch.weixin.qq.com/pay/unifiedorder"
 	resp, data, err := common.RemoteCallWithBody("POST", url, "", "", inputBody, "text/html")
 	if err != nil {
 		logger.Error("RemoteCallWithBody err: %v", err)
@@ -284,6 +282,8 @@ func unifiedOrders(amount float32) (*orderResult, error) {
 		return nil, errors.New("call weixin api err")
 	}
 
+	logger.Info("return data: %v", string(data))
+
 	reqResult := &UnifyOrderResp{}
 	err = xml.Unmarshal(data, reqResult)
 	if err != nil {
@@ -291,19 +291,19 @@ func unifiedOrders(amount float32) (*orderResult, error) {
 		return nil, err
 	}
 
-	logger.Info("request return: %v", reqResult)
-
 	if reqResult.Result_code == "FAIL" {
 		logger.Warn("微信支付统一下单失败，原因是: %v", reqResult.Return_msg)
 		return nil, errors.New(reqResult.Return_msg)
 	}
 
-	return &orderResult{
+	return &models.OrderResult{
 		myReq.Out_trade_no,
+		myReq.Nonce_str,
 		reqResult.Trade_type,
+		amount,
 		reqResult.Code_url,
+		myReq.Sign,
 	}, nil
-
 }
 
 //微信支付计算签名的函数
@@ -343,6 +343,14 @@ func wxpayCalcSign(mReq map[string]interface{}, key string) (sign string) {
 func genNonce_str() string {
 	b := make([]byte, 32)
 	for i := range b {
+		b[i] = randNumber[rand.Intn(len(randNumber))]
+	}
+	return string(b)
+}
+
+func genRandomNumber(amount int) string {
+	b := make([]byte, amount)
+	for i := range b {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
@@ -350,8 +358,8 @@ func genNonce_str() string {
 
 func genOut_trade_no() string {
 	t := time.Now().Format("20060102")
-	str := fmt.Sprintf("%s%d", t, time.Now().Unix())
-	return str
+	s := genRandomNumber(24)
+	return t + s
 }
 
 func validateAuth(token, region string) (string, *Error) {

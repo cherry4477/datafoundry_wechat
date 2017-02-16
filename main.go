@@ -40,7 +40,7 @@ func main() {
 	router.NewRouter(initRouter)
 
 	// init db, 数据库使用开关
-	//models.InitDB()
+	models.InitDB()
 
 	service := newService(SERVERPORT)
 	address := fmt.Sprintf(":%d", service.httpPort)

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"encoding/xml"
 	"errors"
 	"github.com/asiainfoLDP/datafoundry_wechat/log"
-	"encoding/xml"
 )
 
 const (

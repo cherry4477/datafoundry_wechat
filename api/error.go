@@ -29,7 +29,7 @@ const (
 	ErrorCodeAuthFailed        = 1305
 	ErrorCodePermissionDenied  = 1306
 	ErrorCodeInvalidParameters = 1307
-	ErrorCodeCreateCoupon      = 1308
+	ErrorCodeCreateOrder       = 1308
 	ErrorCodeUseCoupon         = 1309
 	ErrorCodeDeleteCoupon      = 1310
 	ErrorCodeGetCoupon         = 1311
@@ -60,7 +60,7 @@ func init() {
 	initError(ErrorCodePermissionDenied, "permission denied")
 	initError(ErrorCodeInvalidParameters, "invalid parameters")
 
-	initError(ErrorCodeCreateCoupon, "failed to create coupon")
+	initError(ErrorCodeCreateOrder, "failed to create order")
 	initError(ErrorCodeUseCoupon, "failed to use a coupon")
 	initError(ErrorCodeProvideCoupons, "failed to provide coupons")
 	initError(ErrorCodeGetCoupon, "failed to retrieve coupon")
