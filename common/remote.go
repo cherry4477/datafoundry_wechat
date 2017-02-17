@@ -46,8 +46,10 @@ func RemoteCallWithBody(method, url string, token, user string, body []byte, con
 		request.Header.Set("User", user)
 	}
 	client := &http.Client{
-		Timeout: time.Duration(GeneralRemoteCallTimeout) * time.Second,
+		Timeout: time.Duration(20) * time.Second,
 	}
+
+
 
 	response, err := client.Do(request)
 	if response != nil {
