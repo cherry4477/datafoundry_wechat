@@ -113,14 +113,14 @@ func GetOrderInfo(db *sql.DB, out_trade_no string) (*orderInfo, error) {
 
 	sql := "select OUT_TRADE_NO, TOTAL_FEE, REGION, USERNAME, NAMESPACE, STATUS from DF_WECHATORDERS where OUT_TRADE_NO=?"
 
-	row, err := db.Query(sql, out_trade_no)
-	if err != nil {
-		logger.Error("db.Query err: %v", err)
-		return nil, err
-	}
+	row := db.QueryRow(sql, out_trade_no)
+	//if err != nil {
+	//	logger.Error("db.Query err: %v", err)
+	//	return nil, err
+	//}
 
 	info := &orderInfo{}
-	err = row.Scan(info.Out_trade_no, info.Total_fee, info.Region, info.Username, info.Namespace, info.Status)
+	err := row.Scan(info.Out_trade_no, info.Total_fee, info.Region, info.Username, info.Namespace, info.Status)
 	if err != nil {
 		logger.Error("row.Scan err: %v", err)
 		return nil, err
