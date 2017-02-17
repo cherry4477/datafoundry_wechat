@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	GeneralRemoteCallTimeout = 10 // seconds
+	GeneralRemoteCallTimeout = 20 // seconds
 )
 
 var logger = log.GetLogger()
@@ -46,7 +46,7 @@ func RemoteCallWithBody(method, url string, token, user string, body []byte, con
 		request.Header.Set("User", user)
 	}
 	client := &http.Client{
-		Timeout: time.Duration(20) * time.Second,
+		Timeout: time.Duration(GeneralRemoteCallTimeout) * time.Second,
 	}
 
 
