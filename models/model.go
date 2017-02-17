@@ -120,7 +120,7 @@ func GetOrderInfo(db *sql.DB, out_trade_no string) (*orderInfo, error) {
 	//}
 
 	info := &orderInfo{}
-	err := row.Scan(info.Out_trade_no, info.Total_fee, info.Region, info.Username, info.Namespace, info.Status)
+	err := row.Scan(&info.Out_trade_no, &info.Total_fee, &info.Region, &info.Username, &info.Namespace, &info.Status)
 	if err != nil {
 		logger.Error("row.Scan err: %v", err)
 		return nil, err
