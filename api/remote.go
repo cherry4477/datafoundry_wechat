@@ -142,11 +142,11 @@ func dfUser(user *userapi.User) string {
 //call recharge api
 //====================================================
 
-func couponRecharge(region, couponSerial, username, namespace string, amount float32) error {
+func DFRecharge(region, reason, username, namespace string, amount float32) error {
 	logger.Info("Call remote recharge....")
 	body := fmt.Sprintf(
 		`{"namespace":"%s", "amount":%.3f, "reason":"%s", "user":"%s"}`,
-		namespace, amount, couponSerial, username,
+		namespace, amount, reason, username,
 	)
 
 	//RechargeSercice1 := "http://datafoundry.recharge.app.dataos.io:80"

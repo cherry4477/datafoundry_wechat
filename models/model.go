@@ -78,25 +78,55 @@ type OrderResult struct {
 	Nonce_str    string
 	Trade_type   string
 	Total_fee    float32
+	Prepay_id    string
 	Code_url     string
 	Sign         string
 }
 
-func CreateOrder(db *sql.DB, result *OrderResult, username, namespace string) error {
-	logger.Info("Begin get a coupon by id model.")
+func CreateOrder(db *sql.DB, result *OrderResult, region, username, namespace string) error {
+	logger.Info("Begin create a order.")
 
 	sql := "insert into DF_WECHATORDERS (" +
-		"OUT_TRADE_NO, NONCE_STR, ORDERSIGN, TOTAL_FEE, TRADE_TYPE, CODE_URL, USERNAME, NAMESPACE, STATUS) " +
-		"values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		"OUT_TRADE_NO, NONCE_STR, ORDERSIGN, TOTAL_FEE, TRADE_TYPE, PREPAY_ID, CODE_URL, REGION, USERNAME, NAMESPACE, STATUS) " +
+		"values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 	_, err := db.Exec(sql, result.Out_trade_no, result.Nonce_str, result.Sign,
-		result.Total_fee, result.Trade_type, result.Code_url, username, namespace, "created")
+		result.Total_fee, result.Trade_type, result.Prepay_id, result.Code_url, region, username, namespace, "created")
 	if err != nil {
 		logger.Error(" db.Exec err: %v", err)
 		return err
 	}
-	logger.Info("End get a coupon by id model.")
+	logger.Info("End create a order.")
 	return nil
+}
+
+type orderInfo struct {
+	Out_trade_no string
+	Total_fee    float32
+	Region       string
+	Username     string
+	Namespace    string
+	Status       string
+}
+
+func GetOrderInfo(db *sql.DB, out_trade_no string) (*orderInfo, error) {
+
+	sql := "select OUT_TRADE_NO, TOTAL_FEE, REGION, USERNAME, NAMESPACE, STATUS from DF_WECHATORDERS where OUT_TRADE_NO=?"
+
+	row, err := db.Query(sql, out_trade_no)
+	if err != nil {
+		logger.Error("db.Query err: %v", err)
+		return nil, err
+	}
+
+	info := &orderInfo{}
+	err = row.Scan(info.Out_trade_no, info.Total_fee, info.Region, info.Username, info.Namespace, info.Status)
+	if err != nil {
+		logger.Error("row.Scan err: %v", err)
+		return nil, err
+	}
+
+	return info, nil
 }
 
 func getSingleCoupon(db *sql.DB, sqlWhere string) (*retrieveResult, error) {

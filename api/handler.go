@@ -77,9 +77,7 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 		return
 	}
 
-	//couponRecharge(region, serial, username, useInfo.Namespace, rechargeInfo.Amount)
-
-	err = models.CreateOrder(db, result, username, rechargeInfo.Namespace)
+	err = models.CreateOrder(db, result, region, username, rechargeInfo.Namespace)
 	if err != nil {
 		logger.Error("db create order err: %v", err)
 		JsonResult(w, http.StatusBadRequest, GetError2(ErrorCodeCreateOrder, err.Error()), nil)
@@ -97,13 +95,14 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	//	return
 	//}
 
-	//logger.Info("End use a coupon handler.")
 	JsonResult(w, http.StatusOK, nil, struct {
 		Out_trade_no string
 		Trade_type   string
 		Total_fee    float32
 		Code_url     string
 	}{result.Out_trade_no, result.Trade_type, result.Total_fee, result.Code_url})
+
+	logger.Info("End use a coupon handler.")
 }
 
 type WXPayNotifyReq struct {
@@ -135,6 +134,13 @@ type WXPayNotifyResp struct {
 
 func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
+	db := models.GetDB()
+	if db == nil {
+		logger.Warn("Get db is nil.")
+		JsonResult(w, http.StatusInternalServerError, GetError(ErrorCodeDbNotInitlized), nil)
+		return
+	}
+
 	reqParams := &WXPayNotifyReq{}
 	err := common.ParseRequestXmlInto(r, reqParams)
 	if err != nil {
@@ -165,9 +171,23 @@ func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 	var resp WXPayNotifyResp
 	//进行签名校验
 	if wxpayVerifySign(reqMap, reqParams.Sign) {
-		//这里就可以更新我们的后台数据库了，其他业务逻辑同理。
 		resp.Return_code = "SUCCESS"
 		resp.Return_msg = "OK"
+		//这里就可以更新我们的后台数据库了，其他业务逻辑同理。
+		orderInfo, err := models.GetOrderInfo(db, reqParams.Out_trade_no)
+		if err != nil {
+			http.Error(w.(http.ResponseWriter), http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+		logger.Debug("get order's info:", orderInfo)
+
+		if orderInfo.Status == "created" {
+			err := DFRecharge(orderInfo.Region, orderInfo.Out_trade_no, orderInfo.Username, orderInfo.Namespace, orderInfo.Total_fee)
+			if err != nil {
+				//todo 微信退款
+				logger.Error("df 充值失败， 准备退款。。。")
+			}
+		}
 	} else {
 		resp.Return_code = "FAIL"
 		resp.Return_msg = "failed to verify sign, please retry!"
@@ -301,6 +321,7 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 		myReq.Nonce_str,
 		reqResult.Trade_type,
 		amount,
+		reqResult.Prepay_id,
 		reqResult.Code_url,
 		myReq.Sign,
 	}, nil
@@ -351,7 +372,7 @@ func genNonce_str() string {
 func genRandomNumber(amount int) string {
 	b := make([]byte, amount)
 	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+		b[i] = randNumber[rand.Intn(len(randNumber))]
 	}
 	return string(b)
 }
