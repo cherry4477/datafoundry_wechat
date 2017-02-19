@@ -49,8 +49,6 @@ func RemoteCallWithBody(method, url string, token, user string, body []byte, con
 		Timeout: time.Duration(GeneralRemoteCallTimeout) * time.Second,
 	}
 
-
-
 	response, err := client.Do(request)
 	if response != nil {
 		defer response.Body.Close()

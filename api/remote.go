@@ -1,14 +1,20 @@
 package api
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/xml"
+	"errors"
 	"fmt"
 	"github.com/asiainfoLDP/datafoundry_wechat/common"
 	"github.com/asiainfoLDP/datafoundry_wechat/models"
 	"github.com/asiainfoLDP/datafoundry_wechat/openshift"
 	userapi "github.com/openshift/origin/pkg/user/api/v1"
 	kapi "k8s.io/kubernetes/pkg/api/v1"
+	"math/rand"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -73,8 +79,6 @@ func BuildServiceUrlPrefixFromEnv(name string, isHttps bool, addrEnv string, por
 }
 
 func InitGateWay() {
-	//DataFoundryHost = BuildServiceUrlPrefixFromEnv("DataFoundryHost", true, "DATAFOUNDRY_HOST_ADDR", "")
-	//openshift.Init(DataFoundryHost, os.Getenv("DATAFOUNDRY_ADMIN_USER"), os.Getenv("DATAFOUNDRY_ADMIN_PASS"))
 	var durPhase time.Duration
 	phaseStep := time.Hour / NumDfRegions
 
@@ -142,7 +146,172 @@ func dfUser(user *userapi.User) string {
 //call recharge api
 //====================================================
 
-func DFRecharge(region, reason, username, namespace string, amount float32) error {
+type UnifyOrderReq struct {
+	Appid            string `xml:"appid"`
+	Mch_id           string `xml:"mch_id"`
+	Nonce_str        string `xml:"nonce_str"`
+	Sign             string `xml:"sign"`
+	Body             string `xml:"body"`
+	Out_trade_no     string `xml:"out_trade_no"`
+	Total_fee        int32  `xml:"total_fee"`
+	Spbill_create_ip string `xml:"spbill_create_ip"`
+	Notify_url       string `xml:"notify_url"`
+	Trade_type       string `xml:"trade_type"`
+}
+
+type UnifyOrderResp struct {
+	Return_code  string `xml:"return_code"`
+	Return_msg   string `xml:"return_msg"`
+	Appid        string `xml:"appid"`
+	Mch_id       string `xml:"mch_id"`
+	Nonce_str    string `xml:"nonce_str"`
+	Sign         string `xml:"sign"`
+	Result_code  string `xml:"result_code"`
+	Prepay_id    string `xml:"prepay_id"`
+	Trade_type   string `xml:"trade_type"`
+	Code_url     string `xml:"code_url"`
+	Err_code     string `xml:"err_code"`
+	Err_code_des string `xml:"err_code_des"`
+}
+
+//调用微信API统一下单
+func unifiedOrders(amount float32) (*models.OrderResult, error) {
+	logger.Info("Begin start unified orders.")
+
+	myReq := UnifyOrderReq{
+		Appid:  "wxd653a9d6ef5659ab",
+		Mch_id: "1419771302",
+		//Nonce_str: "5K8264ILTKCH16CQ2502SI8ZNMTM67VS",
+		//Sign:             "C380BEC2BFD727A4B6845133519F3AD6",
+		Body: "铸数工坊充值",
+		//Out_trade_no:     "201508061125346",
+		//Total_fee:        100,
+		Spbill_create_ip: "192.168.12.71",
+		Notify_url:       "http://datafoundry.wechat.app.dataos.io/wxpay/pay.action",
+		Trade_type:       "NATIVE",
+	}
+
+	myReq.Nonce_str = genNonce_str()
+	myReq.Out_trade_no = genOut_trade_no()
+	myReq.Total_fee = (int32)(amount * 100)
+
+	var m map[string]interface{}
+	m = make(map[string]interface{}, 0)
+	m["appid"] = myReq.Appid
+	m["body"] = myReq.Body
+	m["mch_id"] = myReq.Mch_id
+	m["notify_url"] = myReq.Notify_url
+	m["trade_type"] = myReq.Trade_type
+	m["spbill_create_ip"] = myReq.Spbill_create_ip
+	m["total_fee"] = myReq.Total_fee
+	m["out_trade_no"] = myReq.Out_trade_no
+	m["nonce_str"] = myReq.Nonce_str
+	//m["openid"] = myReq.Openid
+	myReq.Sign = wxpayCalcSign(m, "data2016data2016data2016data2016") //这个是计算wxpay签名的函数上面已贴出
+	logger.Info("order sign: %v", myReq.Sign)
+
+	inputBody, err := xml.Marshal(myReq)
+	if err != nil {
+		logger.Error("Marshal err: %v", err)
+		return nil, err
+	}
+
+	logger.Debug("input: %v", string(inputBody))
+
+	url := "https://api.mch.weixin.qq.com/pay/unifiedorder"
+	resp, data, err := common.RemoteCallWithBody("POST", url, "", "", inputBody, "text/html")
+	if err != nil {
+		logger.Error("RemoteCallWithBody err: %v", err)
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("unknow err: %v", string(data))
+		return nil, errors.New("call weixin api err")
+	}
+
+	logger.Info("return data: %v", string(data))
+
+	reqResult := &UnifyOrderResp{}
+	err = xml.Unmarshal(data, reqResult)
+	if err != nil {
+		logger.Error("Unmarshal err: %v", err)
+		return nil, err
+	}
+
+	if reqResult.Result_code == "FAIL" {
+		logger.Warn("微信支付统一下单失败，原因是: %v", reqResult.Return_msg)
+		return nil, errors.New(reqResult.Return_msg)
+	}
+
+	return &models.OrderResult{
+		myReq.Out_trade_no,
+		myReq.Nonce_str,
+		reqResult.Trade_type,
+		amount,
+		reqResult.Prepay_id,
+		reqResult.Code_url,
+		myReq.Sign,
+	}, nil
+}
+
+//微信支付计算签名的函数
+func wxpayCalcSign(mReq map[string]interface{}, key string) (sign string) {
+	fmt.Println("微信支付签名计算, API KEY:", key)
+	//STEP 1, 对key进行升序排序.
+	sorted_keys := make([]string, 0)
+	for k, _ := range mReq {
+		sorted_keys = append(sorted_keys, k)
+	}
+
+	sort.Strings(sorted_keys)
+
+	//STEP2, 对key=value的键值对用&连接起来，略过空值
+	var signStrings string
+	for _, k := range sorted_keys {
+		logger.Info("k=%v, v=%v\n", k, mReq[k])
+		value := fmt.Sprintf("%v", mReq[k])
+		if value != "" {
+			signStrings = signStrings + k + "=" + value + "&"
+		}
+	}
+
+	//STEP3, 在键值对的最后加上key=API_KEY
+	if key != "" {
+		signStrings = signStrings + "key=" + key
+	}
+
+	//STEP4, 进行MD5签名并且将所有字符转为大写.
+	md5Ctx := md5.New()
+	md5Ctx.Write([]byte(signStrings))
+	cipherStr := md5Ctx.Sum(nil)
+	upperSign := strings.ToUpper(hex.EncodeToString(cipherStr))
+	return upperSign
+}
+
+func genNonce_str() string {
+	b := make([]byte, 32)
+	for i := range b {
+		b[i] = randNumber[rand.Intn(len(randNumber))]
+	}
+	return string(b)
+}
+
+func genRandomNumber(amount int) string {
+	b := make([]byte, amount)
+	for i := range b {
+		b[i] = randNumber[rand.Intn(len(randNumber))]
+	}
+	return string(b)
+}
+
+func genOut_trade_no() string {
+	t := time.Now().Format("20060102")
+	s := genRandomNumber(24)
+	return t + s
+}
+
+func dfRecharge(region, reason, username, namespace string, amount float32) error {
 	logger.Info("Call remote recharge....")
 	body := fmt.Sprintf(
 		`{"namespace":"%s", "amount":%.3f, "reason":"%s", "user":"%s"}`,
@@ -166,23 +335,4 @@ func DFRecharge(region, reason, username, namespace string, amount float32) erro
 	}
 
 	return nil
-}
-
-func fecthCouponOnPro() ([]byte, error) {
-	logger.Info("Call remote fetch conpon.")
-
-	url := "http://datafoundry.pro.coupon.app.dataos.io/charge/v1/provide/coupons"
-	resp, data, err := common.RemoteCallWithJsonBody("POST", url, "", "", nil)
-	if err != nil {
-		logger.Error("RemoteCallWithJsonBody err: %v", err)
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Info("Call remote failed :%s", string(data))
-		return nil, fmt.Errorf("makeRecharge remote (%s) status code: %d.", url, resp.StatusCode)
-	} else {
-		logger.Info(string(data))
-		return data, err
-	}
 }

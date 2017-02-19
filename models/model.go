@@ -114,10 +114,6 @@ func GetOrderInfo(db *sql.DB, out_trade_no string) (*orderInfo, error) {
 	sql := "select OUT_TRADE_NO, TOTAL_FEE, REGION, USERNAME, NAMESPACE, STATUS from DF_WECHATORDERS where OUT_TRADE_NO=?"
 
 	row := db.QueryRow(sql, out_trade_no)
-	//if err != nil {
-	//	logger.Error("db.Query err: %v", err)
-	//	return nil, err
-	//}
 
 	info := &orderInfo{}
 	err := row.Scan(&info.Out_trade_no, &info.Total_fee, &info.Region, &info.Username, &info.Namespace, &info.Status)
@@ -127,6 +123,48 @@ func GetOrderInfo(db *sql.DB, out_trade_no string) (*orderInfo, error) {
 	}
 
 	return info, nil
+}
+
+type WXPayNotifyReq struct {
+	Return_code    string `xml:"return_code"`
+	Return_msg     string `xml:"return_msg"`
+	Appid          string `xml:"appid"`
+	Mch_id         string `xml:"mch_id"`
+	Nonce          string `xml:"nonce_str"`
+	Sign           string `xml:"sign"`
+	Result_code    string `xml:"result_code"`
+	Openid         string `xml:"openid"`
+	Is_subscribe   string `xml:"is_subscribe"`
+	Trade_type     string `xml:"trade_type"`
+	Bank_type      string `xml:"bank_type"`
+	Total_fee      int    `xml:"total_fee"`
+	Fee_type       string `xml:"fee_type"`
+	Cash_fee       int    `xml:"cash_fee"`
+	Cash_fee_Type  string `xml:"cash_fee_type"`
+	Transaction_id string `xml:"transaction_id"`
+	Out_trade_no   string `xml:"out_trade_no"`
+	Attach         string `xml:"attach"`
+	Time_end       string `xml:"time_end"`
+}
+
+func CompleteOrder(db *sql.DB, reqParams *WXPayNotifyReq) error {
+	logger.Info("update order in db.")
+
+	sql := "update DF_WECHATORDERS set CASH_FEE=?, FEE_TYPE=?, BANK_TYPE=?, OPENID=?, TRANSACTION_ID=?, " +
+		"TIME_END=?, STATUS=? where OUT_TRADE_NO=?"
+
+	_, err := db.Exec(sql, reqParams.Cash_fee, reqParams.Fee_type, reqParams.Bank_type,
+		reqParams.Openid, reqParams.Transaction_id, reqParams.Time_end, "paid", reqParams.Out_trade_no)
+	if err != nil {
+		logger.Error("update table err: %v", err)
+		return err
+	}
+
+	logger.Info(">>>>>\n%v\n%v, %v, %v, %v, %v, %v, %v, %v", sql,
+		reqParams.Cash_fee, reqParams.Fee_type, reqParams.Bank_type,
+		reqParams.Openid, reqParams.Transaction_id, reqParams.Time_end, "paid", reqParams.Out_trade_no)
+
+	return nil
 }
 
 func getSingleCoupon(db *sql.DB, sqlWhere string) (*retrieveResult, error) {
