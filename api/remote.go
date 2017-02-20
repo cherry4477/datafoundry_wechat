@@ -314,7 +314,7 @@ func genOut_trade_no() string {
 func dfRecharge(region, reason, username, namespace string, amount float32) error {
 	logger.Info("Call remote recharge....")
 	body := fmt.Sprintf(
-		`{"namespace":"%s", "amount":%.3f, "reason":"%s", "user":"%s", "paymode"}`,
+		`{"namespace":"%s", "amount":%.3f, "reason":"%s", "user":"%s", "paymode":"%s"}`,
 		namespace, amount, reason, username, "wechat",
 	)
 
