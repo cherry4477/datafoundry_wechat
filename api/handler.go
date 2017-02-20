@@ -195,6 +195,35 @@ func wxpayVerifySign(needVerifyM map[string]interface{}, sign string) bool {
 	return false
 }
 
+func QueryOrder(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	logger.Info("Begin query order handler.")
+
+	db := models.GetDB()
+	if db == nil {
+		logger.Warn("Get db is nil.")
+		JsonResult(w, http.StatusInternalServerError, GetError(ErrorCodeDbNotInitlized), nil)
+		return
+	}
+
+	no := params.ByName("no")
+
+	orderStatus, err := models.QueryOrder(db, no)
+	if err != nil {
+		logger.Error("catch err: %v", err)
+		JsonResult(w, http.StatusInternalServerError, GetError2(ErrorCodeQueryOrder, err.Error()), nil)
+	}
+
+	if orderStatus == "paid" {
+		JsonResult(w, http.StatusOK, nil, struct {
+			Status int `json:"status"`
+		}{1})
+	} else {
+		JsonResult(w, http.StatusOK, nil, struct {
+			Status int `json:"status"`
+		}{0})
+	}
+}
+
 func validateAuth(token, region string) (string, *Error) {
 	if token == "" {
 		return "", GetError(ErrorCodeAuthFailed)

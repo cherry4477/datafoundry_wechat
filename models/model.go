@@ -167,6 +167,21 @@ func CompleteOrder(db *sql.DB, reqParams *WXPayNotifyReq) error {
 	return nil
 }
 
+func QueryOrder(db *sql.DB, no string) (string, error) {
+
+	sql := "select status from DF_WECHATORDERS where OUT_TRADE_NO=?"
+
+	row := db.QueryRow(sql, no)
+	var out_trade_no string
+	err := row.Scan(&out_trade_no)
+	if err != nil {
+		logger.Error("query order err: %v", err)
+		return "", err
+	}
+
+	return out_trade_no, nil
+}
+
 func getSingleCoupon(db *sql.DB, sqlWhere string) (*retrieveResult, error) {
 	coupons, err := queryCoupons(db, sqlWhere, "", 1, 0)
 	if err != nil {
