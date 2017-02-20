@@ -77,10 +77,10 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	}
 
 	JsonResult(w, http.StatusOK, nil, struct {
-		out_trade_no string
-		trade_type   string
-		total_fee    float32
-		code_url     string
+		Out_trade_no string  `json:"out_trade_no"`
+		Trade_type   string  `json:"trade_type"`
+		Total_fee    float32 `json:"total_fee"`
+		Code_url     string  `json:"code_url"`
 	}{result.Out_trade_no, result.Trade_type, result.Total_fee, result.Code_url})
 
 	logger.Info("End use a coupon handler.")

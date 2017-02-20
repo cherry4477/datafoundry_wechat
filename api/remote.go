@@ -314,8 +314,8 @@ func genOut_trade_no() string {
 func dfRecharge(region, reason, username, namespace string, amount float32) error {
 	logger.Info("Call remote recharge....")
 	body := fmt.Sprintf(
-		`{"namespace":"%s", "amount":%.3f, "reason":"%s", "user":"%s"}`,
-		namespace, amount, reason, username,
+		`{"namespace":"%s", "amount":%.3f, "reason":"%s", "user":"%s", "paymode"}`,
+		namespace, amount, reason, username, "wechat",
 	)
 
 	//RechargeSercice1 := "http://datafoundry.recharge.app.dataos.io:80"
