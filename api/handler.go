@@ -77,10 +77,10 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 	}
 
 	JsonResult(w, http.StatusOK, nil, struct {
-		Out_trade_no string
-		Trade_type   string
-		Total_fee    float32
-		Code_url     string
+		out_trade_no string
+		trade_type   string
+		total_fee    float32
+		code_url     string
 	}{result.Out_trade_no, result.Trade_type, result.Total_fee, result.Code_url})
 
 	logger.Info("End use a coupon handler.")
@@ -132,7 +132,7 @@ func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 	if wxpayVerifySign(reqMap, reqParams.Sign) {
 		resp.Return_code = "SUCCESS"
 		resp.Return_msg = "OK"
-		//这里就可以更新我们的后台数据库了，其他业务逻辑同理。
+
 		orderInfo, err := models.GetOrderInfo(db, reqParams.Out_trade_no)
 		if err != nil {
 			http.Error(w.(http.ResponseWriter), http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -141,11 +141,23 @@ func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 		logger.Debug("get order's info:", orderInfo)
 
 		if orderInfo.Status == "created" {
-			err := dfRecharge(orderInfo.Region, orderInfo.Out_trade_no, orderInfo.Username, orderInfo.Namespace, orderInfo.Total_fee)
-			if err != nil {
-				//todo 微信退款
-				logger.Error("df 充值失败， 准备退款。。。")
+			dfRechargeFlag := false
+			for i := 1; i <= 3; i++ {
+				err := dfRecharge(orderInfo.Region, orderInfo.Out_trade_no, orderInfo.Username, orderInfo.Namespace, orderInfo.Total_fee)
+				if err != nil {
+					logger.Warn("datafoundry充值失败，重试第%d次", i)
+					continue
+				} else {
+					dfRechargeFlag = true
+					break
+				}
 			}
+
+			if !dfRechargeFlag {
+				logger.Warn("datafound充值失败，微信退款")
+				//todo 微信退款
+			}
+
 			err = models.CompleteOrder(db, reqParams)
 			if err != nil {
 				http.Error(w.(http.ResponseWriter), http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
