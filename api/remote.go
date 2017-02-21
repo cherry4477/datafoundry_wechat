@@ -179,15 +179,11 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 	logger.Info("Begin start unified orders.")
 
 	myReq := UnifyOrderReq{
-		Appid:  "wxd653a9d6ef5659ab",
-		Mch_id: "1419771302",
-		//Nonce_str: "5K8264ILTKCH16CQ2502SI8ZNMTM67VS",
-		//Sign:             "C380BEC2BFD727A4B6845133519F3AD6",
-		Body: "铸数工坊充值",
-		//Out_trade_no:     "201508061125346",
-		//Total_fee:        100,
+		Appid:            appid,
+		Mch_id:           mch_id,
+		Body:             "铸数工坊充值",
 		Spbill_create_ip: "192.168.12.71",
-		Notify_url:       "http://datafoundry.wechat.app.dataos.io/wxpay/pay.action",
+		Notify_url:       notify_url,
 		Trade_type:       "NATIVE",
 	}
 
@@ -206,8 +202,7 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 	m["total_fee"] = myReq.Total_fee
 	m["out_trade_no"] = myReq.Out_trade_no
 	m["nonce_str"] = myReq.Nonce_str
-	//m["openid"] = myReq.Openid
-	myReq.Sign = wxpayCalcSign(m, "data2016data2016data2016data2016") //这个是计算wxpay签名的函数上面已贴出
+	myReq.Sign = wxpayCalcSign(m, wechat_key) //这个是计算wxpay签名的函数上面已贴出
 	logger.Info("order sign: %v", myReq.Sign)
 
 	inputBody, err := xml.Marshal(myReq)

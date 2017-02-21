@@ -21,10 +21,17 @@ const (
 
 var logger = log.GetLogger()
 
-var AdminUsers = make([]string, 0)
+var (
+	AdminUsers = make([]string, 0)
+	appid      string
+	mch_id     string
+	notify_url string
+	wechat_key string
+)
 
 func init() {
 	initAdminUser()
+	initWechatParam()
 }
 
 type RechargeInfo struct {
@@ -34,7 +41,7 @@ type RechargeInfo struct {
 
 func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	logger.Info("Request url: PUT %v.", r.URL)
-	logger.Info("Begin use a coupon handler.")
+	logger.Info("Begin wechat orders handler.")
 
 	db := models.GetDB()
 	if db == nil {
@@ -83,7 +90,7 @@ func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Para
 		Code_url     string  `json:"code_url"`
 	}{result.Out_trade_no, result.Trade_type, result.Total_fee, result.Code_url})
 
-	logger.Info("End use a coupon handler.")
+	logger.Info("End wechat orders handler.")
 }
 
 type WXPayNotifyResp struct {
@@ -182,7 +189,7 @@ func WeChatCallBack(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 }
 
 func wxpayVerifySign(needVerifyM map[string]interface{}, sign string) bool {
-	signCalc := wxpayCalcSign(needVerifyM, "data2016data2016data2016data2016")
+	signCalc := wxpayCalcSign(needVerifyM, wechat_key)
 
 	logger.Info("计算出来的sign: %v", signCalc)
 	logger.Info("微信异步通知sign: %v", sign)
@@ -210,17 +217,20 @@ func QueryOrder(w http.ResponseWriter, r *http.Request, params httprouter.Params
 	orderStatus, err := models.QueryOrder(db, no)
 	if err != nil {
 		logger.Error("catch err: %v", err)
-		JsonResult(w, http.StatusInternalServerError, GetError2(ErrorCodeQueryOrder, err.Error()), nil)
+		JsonResult(w, http.StatusBadRequest, GetError2(ErrorCodeQueryOrder, err.Error()), nil)
+		return
 	}
 
 	if orderStatus == "paid" {
 		JsonResult(w, http.StatusOK, nil, struct {
-			Status int `json:"status"`
-		}{1})
+			Status   int    `json:"status"`
+			Describe string `json:"describe"`
+		}{1, "订单已支付"})
 	} else {
 		JsonResult(w, http.StatusOK, nil, struct {
-			Status int `json:"status"`
-		}{0})
+			Status   int    `json:"status"`
+			Describe string `json:"describe"`
+		}{0, "订单未支付"})
 	}
 }
 
@@ -245,6 +255,30 @@ func initAdminUser() {
 	admins = strings.TrimSpace(admins)
 	AdminUsers = strings.Split(admins, " ")
 	logger.Info("Admin users: %v.", AdminUsers)
+}
+
+func initWechatParam() {
+	appid = os.Getenv("WECHATAPPID")
+	if appid == "" {
+		logger.Warn("Please set wechat param.")
+		os.Exit(1)
+	}
+	mch_id = os.Getenv("WECHATMCHID")
+	if mch_id == "" {
+		logger.Warn("Please set wechat param.")
+		os.Exit(1)
+	}
+	notify_url = os.Getenv("WECHATNOTIFYURL")
+	if notify_url == "" {
+		logger.Warn("Please set wechat param.")
+		os.Exit(1)
+	}
+
+	wechat_key = os.Getenv("WECHATKEY")
+	if notify_url == "" {
+		logger.Warn("Please set wechat param.")
+		os.Exit(1)
+	}
 }
 
 func checkAdminUsers(user string) bool {

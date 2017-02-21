@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	GeneralRemoteCallTimeout = 20 // seconds
+	GeneralRemoteCallTimeout = 30 // seconds
 )
 
 var logger = log.GetLogger()

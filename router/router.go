@@ -64,12 +64,5 @@ func NewRouter(router *httprouter.Router) {
 	logger.Info("new router.")
 	router.POST("/charge/v1/wechat/recharge", api.TimeoutHandle(30000*time.Millisecond, api.WeChatOrders))
 	router.POST("/wxpay/pay.action", api.TimeoutHandle(30000*time.Millisecond, api.WeChatCallBack))
-	//router.DELETE("/charge/v1/coupons/:serial", api.TimeoutHandle(10000*time.Millisecond, api.DeleteCoupon))
-	////router.PUT("/charge/v1/coupons/:serial", api.TimeoutHandle(10000*time.Millisecond, handler.ModifyCoupon))
-	//router.PUT("/charge/v1/coupons/use/:serial", api.TimeoutHandle(10000*time.Millisecond, api.UseCoupon))
 	router.GET("/charge/v1/wechat/order/:no", api.TimeoutHandle(10000*time.Millisecond, api.QueryOrder))
-	//router.GET("/charge/v1/coupons", api.TimeoutHandle(10000*time.Millisecond, api.QueryCouponList))
-	//router.POST("/charge/v1/provide/coupons", api.TimeoutHandle(10000*time.Millisecond, api.ProvideCoupons))
-	//
-	//router.GET("/charge/v1/fetch/coupons", api.TimeoutHandle(10000*time.Millisecond, api.FetchCoupons))
 }
