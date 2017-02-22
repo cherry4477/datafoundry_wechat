@@ -213,12 +213,16 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 
 	logger.Debug("input: %v", string(inputBody))
 
+	t1 := time.Now()
 	url := "https://api.mch.weixin.qq.com/pay/unifiedorder"
 	resp, data, err := common.RemoteCallWithBody("POST", url, "", "", inputBody, "text/html")
 	if err != nil {
 		logger.Error("RemoteCallWithBody err: %v", err)
 		return nil, err
 	}
+
+	d := time.Now().Sub(t1)
+	logger.Info("duration: %v", d)
 
 	if resp.StatusCode != http.StatusOK {
 		logger.Error("unknow err: %v", string(data))
