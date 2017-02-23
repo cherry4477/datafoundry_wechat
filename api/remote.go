@@ -221,7 +221,7 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 		return nil, err
 	}
 
-	d := time.Now().Sub(t1)
+	d := time.Since(t1)
 	logger.Info("duration: %v", d)
 
 	if resp.StatusCode != http.StatusOK {

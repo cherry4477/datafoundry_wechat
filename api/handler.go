@@ -40,7 +40,7 @@ type RechargeInfo struct {
 }
 
 func WeChatOrders(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	logger.Info("Request url: PUT %v.", r.URL)
+	logger.Info("Request url: POST %v.", r.URL)
 	logger.Info("Begin wechat orders handler.")
 
 	db := models.GetDB()
@@ -204,7 +204,7 @@ func wxpayVerifySign(needVerifyM map[string]interface{}, sign string) bool {
 }
 
 func QueryOrder(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	logger.Info("Begin query order handler.")
+	//logger.Info("Begin query order handler.")
 
 	db := models.GetDB()
 	if db == nil {
