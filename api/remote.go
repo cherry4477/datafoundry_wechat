@@ -17,6 +17,11 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"net"
+	"log"
+	"io/ioutil"
+	//"io"
+	"bytes"
 )
 
 const (
@@ -213,16 +218,24 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 
 	logger.Debug("input: %v", string(inputBody))
 
-	t1 := time.Now()
+	//t1 := time.Now()
 	url := "https://api.mch.weixin.qq.com/pay/unifiedorder"
-	resp, data, err := common.RemoteCallWithBody("POST", url, "", "", inputBody, "text/html")
-	if err != nil {
-		logger.Error("RemoteCallWithBody err: %v", err)
-		return nil, err
-	}
+	//resp, data, err := common.RemoteCallWithBody("POST", url, "", "", inputBody, "text/html")
+	//if err != nil {
+	//	logger.Error("RemoteCallWithBody err: %v", err)
+	//	return nil, err
+	//}
 
-	d := time.Since(t1)
-	logger.Info("duration: %v", d)
+	resp := requestTime(url, inputBody)
+	//fmt.Println(resp)
+	defer resp.Body.Close()
+
+	//d := time.Since(t1)
+	//logger.Info("duration: %v", d)
+
+	data, _ := ioutil.ReadAll(resp.Body)
+	//fmt.Println("data: %v", data)
+
 
 	if resp.StatusCode != http.StatusOK {
 		logger.Error("unknow err: %v", string(data))
@@ -252,6 +265,8 @@ func unifiedOrders(amount float32) (*models.OrderResult, error) {
 		reqResult.Code_url,
 		myReq.Sign,
 	}, nil
+
+	return nil, nil
 }
 
 //微信支付计算签名的函数
@@ -334,4 +349,89 @@ func dfRecharge(region, reason, username, namespace string, amount float32) erro
 	}
 
 	return nil
+}
+
+func requestTime(url string, body []byte) *http.Response {
+	//var show bool
+	//
+	//flag.BoolVar(&show, "show", false, "Display the response content")
+	//flag.Parse()
+
+	//url := flag.Args()[0]
+	fmt.Println("URL:", url)
+
+	tp := newTransport()
+	client := &http.Client{Transport: tp}
+
+	b := bytes.NewReader(body)
+
+	resp, err := client.Post(url, "text/html", b)
+	if err != nil {
+		log.Fatalf("get error: %s: %s", err, url)
+	}
+	//defer resp.Body.Close()
+
+	//show := true
+	//output := ioutil.Discard
+	//if show {
+	//	output = os.Stdout
+	//}
+	//io.Copy(output, resp.Body)
+
+	log.Println("Duration:", tp.Duration())
+	log.Println("Request duration:", tp.ReqDuration())
+	log.Println("Connection duration:", tp.ConnDuration())
+
+	return resp
+}
+
+type customTransport struct {
+	rtp       http.RoundTripper
+	dialer    *net.Dialer
+	connStart time.Time
+	connEnd   time.Time
+	reqStart  time.Time
+	reqEnd    time.Time
+}
+
+func newTransport() *customTransport {
+
+	tr := &customTransport{
+		dialer: &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		},
+	}
+	tr.rtp = &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		Dial:                tr.dial,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	return tr
+}
+
+func (tr *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	tr.reqStart = time.Now()
+	resp, err := tr.rtp.RoundTrip(r)
+	tr.reqEnd = time.Now()
+	return resp, err
+}
+
+func (tr *customTransport) dial(network, addr string) (net.Conn, error) {
+	tr.connStart = time.Now()
+	cn, err := tr.dialer.Dial(network, addr)
+	tr.connEnd = time.Now()
+	return cn, err
+}
+
+func (tr *customTransport) ReqDuration() time.Duration {
+	return tr.Duration() - tr.ConnDuration()
+}
+
+func (tr *customTransport) ConnDuration() time.Duration {
+	return tr.connEnd.Sub(tr.connStart)
+}
+
+func (tr *customTransport) Duration() time.Duration {
+	return tr.reqEnd.Sub(tr.reqStart)
 }
